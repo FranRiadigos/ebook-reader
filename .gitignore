@@ -24,8 +24,8 @@ target
 .metadata
 .settings/
 .settings
-## .classpath
-## *.project
+.classpath
+.project
 
 #custom files
 dev/
