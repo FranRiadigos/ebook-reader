@@ -1,0 +1,40 @@
+*.class
+
+# Package Files #
+*.dex
+*.war
+*.ear
+*.apk
+*.ap_
+
+# generated files
+bin/
+bin
+gen/
+gen
+out/
+out
+release/
+release
+target/
+target
+
+# eclipse files
+.metadata/
+.metadata
+.settings/
+.settings
+## .classpath
+## *.project
+
+#custom files
+dev/
+dev
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Windows thumbnail db
+.DS_Store
+
+*~
