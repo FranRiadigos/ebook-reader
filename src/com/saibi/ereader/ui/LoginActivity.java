@@ -2,176 +2,96 @@ package com.saibi.ereader.ui;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.dropbox.client2.DropboxAPI;
-import com.dropbox.client2.android.AndroidAuthSession;
 import com.dropbox.client2.android.AuthActivity;
-import com.dropbox.client2.session.AccessTokenPair;
-import com.dropbox.client2.session.AppKeyPair;
-import com.dropbox.client2.session.Session.AccessType;
-import com.dropbox.client2.session.TokenPair;
+import com.saibi.ereader.EReaderManager;
 import com.saibi.ereader.R;
 
+@SuppressWarnings("unused")
 public class LoginActivity extends Activity {
-    private static final String TAG = "LoginActivity";
+	private static final String TAG = "LoginActivity";
+    
+    public static final int LOGIN_REQUEST = 0x01;
+    
+    EReaderManager mDropboxManager;
 	
-	
-	///////////////////////////////////////////////////////////////////////////
-	//                      Your app-specific settings.                      //
-	///////////////////////////////////////////////////////////////////////////
-	
-	final static private String APP_KEY = "CHANGE_ME";
-	final static private String APP_SECRET = "CHANGE_ME_SECRET";
-	
-	final static private AccessType ACCESS_TYPE = AccessType.DROPBOX;
-	
-	///////////////////////////////////////////////////////////////////////////
-	//                      End app-specific settings.                       //
-	///////////////////////////////////////////////////////////////////////////
-	
-	// You don't need to change these, leave them alone.
-	final static private String ACCOUNT_PREFS_NAME = "prefs";
-	final static private String ACCESS_KEY_NAME = "ACCESS_KEY";
-	final static private String ACCESS_SECRET_NAME = "ACCESS_SECRET";
-	
-	DropboxAPI<AndroidAuthSession> mApi;
-	
-	// Android widgets
-    private Button mSubmit;
-
+	/**
+	 * Boton para logearse con dropbox
+	 */
+	private Button mSubmit;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
-		// We create a new AuthSession so that we can use the Dropbox API.
-		
-		/*
-		 * Al construir el objeto de sesion, comprobamos si tenemos guardado el token de acceso 
-		 */
-        AndroidAuthSession session = buildSession();
-        mApi = new DropboxAPI<AndroidAuthSession>(session);
-
-        // Basic Android layout
+        // Layout para logearse con diferentes plataformas
         setContentView(R.layout.activity_login);
 
-        /*
-         * Lo voy a dejar ya que no subo api keys reales al repo
-         */
+        // Lo voy a dejar ya que no subo api keys reales al repo
         checkAppKeySetup();
         
-        mSubmit = (Button)findViewById(R.id.auth_button);
-
-        mSubmit.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-            	
-                mApi.getSession().startAuthentication(LoginActivity.this);
-            }
-        });
+        mDropboxManager = EReaderManager.getInstance();
+        
+//        mSubmit = (Button)findViewById(R.id.auth_button);
+//
+//        mSubmit.setOnClickListener(new OnClickListener() {
+//            public void onClick(View v) {
+//            	
+//                mDropboxManager.doLogin(LoginActivity.this, LOGIN_REQUEST);
+//            }
+//        });
+        
+        if(mDropboxManager.isLoggedIn())
+        	showEbookList();
+        else
+        	mDropboxManager.doLogin(LoginActivity.this, LOGIN_REQUEST);
 	}
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        AndroidAuthSession session = mApi.getSession();
-
-        // The next part must be inserted in the onResume() method of the
-        // activity from which session.startAuthentication() was called, so
-        // that Dropbox authentication completes properly.
-        if (session.authenticationSuccessful()) {
-            try {
-                // Mandatory call to complete the auth
-                session.finishAuthentication();
-
-                // Store it locally in our app for later use
-                TokenPair tokens = session.getAccessTokenPair();
-                storeKeys(tokens.key, tokens.secret);
-                
-                /*
-                 * Estamos logeados con dropbox
-                 * Mostramos la pantalla del listado
-                 */
-                
-                showEbookList();
-            } catch (IllegalStateException e) {
-                showToast("Couldn't authenticate with Dropbox:" + e.getLocalizedMessage());
-                Log.i(TAG, "Error authenticating", e);
-            }
-        }
-    }
 	
-	/**
-     * Shows keeping the access keys returned from Trusted Authenticator in a local
-     * store, rather than storing user name & password, and re-authenticating each
-     * time (which is not to be done, ever).
-     *
-     * @return Array of [access_key, access_secret], or null if none stored
-     */
-    private String[] getKeys() {
-        SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
-        String key = prefs.getString(ACCESS_KEY_NAME, null);
-        String secret = prefs.getString(ACCESS_SECRET_NAME, null);
-        if (key != null && secret != null) {
-        	String[] ret = new String[2];
-        	ret[0] = key;
-        	ret[1] = secret;
-        	return ret;
-        } else {
-        	return null;
-        }
-    }
-
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		
+		if(requestCode == LOGIN_REQUEST)
+		{
+			if(resultCode == RESULT_OK)
+				showEbookList();
+			
+			else
+				// Si no se logea correctamente cerramos la aplicacion
+				finish();
+		}
+		
+		super.onActivityResult(requestCode, resultCode, data);
+	}
+    
     /**
-     * Shows keeping the access keys returned from Trusted Authenticator in a local
-     * store, rather than storing user name & password, and re-authenticating each
-     * time (which is not to be done, ever).
+     * Mostramos la pantalla del listado de .epubs
      */
-    private void storeKeys(String key, String secret) {
-        // Save the access key for later
-        SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
-        Editor edit = prefs.edit();
-        edit.putString(ACCESS_KEY_NAME, key);
-        edit.putString(ACCESS_SECRET_NAME, secret);
-        edit.commit();
+    private void showEbookList()
+    {
+    	Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+    	finish();
+    	startActivity(intent);
     }
 
-    private AndroidAuthSession buildSession() {
-        AppKeyPair appKeyPair = new AppKeyPair(APP_KEY, APP_SECRET);
-        AndroidAuthSession session;
-
-        String[] stored = getKeys();
-        if (stored != null) {
-            AccessTokenPair accessToken = new AccessTokenPair(stored[0], stored[1]);
-            session = new AndroidAuthSession(appKeyPair, ACCESS_TYPE, accessToken);
-        } else {
-            session = new AndroidAuthSession(appKeyPair, ACCESS_TYPE);
-        }
-
-        return session;
-    }
-
+    
     private void checkAppKeySetup() {
         // Check to make sure that we have a valid app key
-        if (APP_KEY.startsWith("CHANGE") ||
-                APP_SECRET.startsWith("CHANGE")) {
-            showToast("You must apply for an app key and secret from developers.dropbox.com, and add them to the DBRoulette ap before trying it.");
+        if (EReaderManager.APP_KEY.startsWith("CHANGE") ||
+        		EReaderManager.APP_SECRET.startsWith("CHANGE")) {
+            showToast(	"You must apply for an app key and secret from developers.dropbox.com, " +
+            			"and add them to the DBRoulette ap before trying it.");
             finish();
             return;
         }
 
         // Check if the app has set up its manifest properly.
         Intent testIntent = new Intent(Intent.ACTION_VIEW);
-        String scheme = "db-" + APP_KEY;
+        String scheme = "db-" + EReaderManager.APP_KEY;
         String uri = scheme + "://" + AuthActivity.AUTH_VERSION + "/test";
         testIntent.setData(Uri.parse(uri));
         PackageManager pm = getPackageManager();
@@ -187,15 +107,5 @@ public class LoginActivity extends Activity {
     private void showToast(String msg) {
         Toast error = Toast.makeText(this, msg, Toast.LENGTH_LONG);
         error.show();
-    }
-    
-    /**
-     * Mostramos la pantalla del listado de .epubs
-     */
-    private void showEbookList()
-    {
-    	Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-    	finish();
-    	startActivity(intent);
     }
 }

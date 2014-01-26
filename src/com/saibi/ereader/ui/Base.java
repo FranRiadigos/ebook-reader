@@ -29,5 +29,7 @@ public class Base extends FragmentActivity {
 			.beginTransaction()
 			.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
 				.replace(containerId, frag).commit();
+		
+		getSupportFragmentManager().executePendingTransactions();
 	}
 }
