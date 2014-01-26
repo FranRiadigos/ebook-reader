@@ -24,7 +24,7 @@ import com.dropbox.client2.session.TokenPair;
 import com.saibi.ereader.domain.DbxFileInfo;
 
 /**
- * Gestor que maneja peticiones contra la Api de dropbox
+ * Wrapper que maneja peticiones contra la Api de dropbox
  * 
  * Lo usamos tanto para conectarnos, como para recuperar los archivos en una tarea asincrona.
  */
@@ -78,7 +78,7 @@ public class EReaderManager {
     }
 	
 	/**
-	 * Metodo para conectarse a la cuenta de dropbox
+	 * Metodo para conectarse a la cuenta de dropbox al menos 1 vez
 	 * 
 	 * @param activity		Contexto de la actividad que lanza el metodo
 	 */
@@ -178,6 +178,11 @@ public class EReaderManager {
 				
 			List<Entry> fileList;
 			try {
+				
+				/*
+				 * Implementacion mas eficiente para obtener todos los archivos con extension .epub 
+				 * Dejando al servidor de dropbox hacer la busqueda en sus metadatos.
+				 */
 				fileList = mDropboxAPI.search(mPath, mFileExtension, mMaxFiles, false);
 				
 				EpubReader reader = new EpubReader();
@@ -188,9 +193,13 @@ public class EReaderManager {
 	            {
 	                if (entry.mimeType.compareTo("application/epub+zip") == 0)
 	                {
+	                	/*
+	                	 * TODO: Se ralentiza mucho en el emulador
+	                	 */
 	                	InputStream is = mDropboxAPI.getFileStream(entry.path, null);
-	                	
 	                	Book book = reader.readEpub(is);
+	                	
+	                	is.close();
 	                	
 	                	DbxFileInfo fileInfo = new DbxFileInfo(book, entry);
 	                	
