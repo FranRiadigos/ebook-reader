@@ -2,7 +2,7 @@
 <resources>
 
     <string name="app_name">Ebook-reader</string>
-    <string-array name="sort_dropdown_values">
+    <string-array name="dropdown_sort_values">
         <item >Ordenar por título</item>
         <item >Ordenar por fecha de creación</item>
     </string-array>

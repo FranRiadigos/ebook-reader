@@ -26,10 +26,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name="com.saibi.ereader.ui.Cover" android:theme="@style/CoverTheme" />
         <activity
             android:name="com.dropbox.client2.android.AuthActivity"
             android:configChanges="orientation|keyboard"
-            android:launchMode="singleTask" >
+            android:launchMode="singleTask"
+            android:noHistory="true" >
             <intent-filter>
 
                 <!-- Change this to be db- followed by your app key -->

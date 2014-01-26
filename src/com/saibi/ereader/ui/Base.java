@@ -9,27 +9,26 @@ import com.saibi.ereader.R;
 
 public class Base extends FragmentActivity {
 
-	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		
+
 		setContentView(R.layout.base);
 	}
-	
+
 	/**
 	 * Replace support fragments with null tag
 	 * 
-	 * @param frag Fragment
-	 * @param containerId Integer
+	 * @param frag
+	 *            Fragment
+	 * @param containerId
+	 *            Integer
 	 */
-	public void replaceSupportFragment(Fragment frag, int containerId)
-	{
-		getSupportFragmentManager()
-			.beginTransaction()
-			.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
+	public void replaceSupportFragment(Fragment frag, int containerId) {
+		getSupportFragmentManager().beginTransaction()
+				.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
 				.replace(containerId, frag).commit();
-		
+
 		getSupportFragmentManager().executePendingTransactions();
 	}
 }

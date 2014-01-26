@@ -8,7 +8,7 @@ public class DbxFileInfo {
 
 	private Book book;
 	private Entry entry;
-	
+
 	public DbxFileInfo(Book book, Entry entry) {
 		this.book = book;
 		this.entry = entry;
@@ -21,5 +21,5 @@ public class DbxFileInfo {
 	public Entry getEntry() {
 		return entry;
 	}
-	
+
 }
