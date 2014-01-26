@@ -1,27 +1,29 @@
 package com.saibi.ereader;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import nl.siegmann.epublib.domain.Book;
+import nl.siegmann.epublib.epub.EpubReader;
 import android.app.Activity;
-import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import com.dropbox.sync.android.DbxAccountManager;
-import com.dropbox.sync.android.DbxException;
-import com.dropbox.sync.android.DbxException.InvalidParameter;
-import com.dropbox.sync.android.DbxException.NotFound;
-import com.dropbox.sync.android.DbxException.Unauthorized;
-import com.dropbox.sync.android.DbxFileInfo;
-import com.dropbox.sync.android.DbxFileSystem;
-import com.dropbox.sync.android.DbxPath;
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.DropboxAPI.Entry;
+import com.dropbox.client2.android.AndroidAuthSession;
+import com.dropbox.client2.exception.DropboxException;
+import com.dropbox.client2.session.AccessTokenPair;
+import com.dropbox.client2.session.AppKeyPair;
+import com.dropbox.client2.session.Session.AccessType;
+import com.dropbox.client2.session.TokenPair;
+import com.saibi.ereader.domain.DbxFileInfo;
 
 /**
- * @author Saibi
- *
  * Gestor que maneja peticiones contra la Api de dropbox
  * 
  * Lo usamos tanto para conectarnos, como para recuperar los archivos en una tarea asincrona.
@@ -32,39 +34,27 @@ public class EReaderManager {
     final static public String APP_KEY = "CHANGE_ME";
 	final static public String APP_SECRET = "CHANGE_ME_SECRET";
 
+    final static private AccessType ACCESS_TYPE = AccessType.DROPBOX;
+
+    // You don't need to change these, leave them alone.
+    final static private String ACCOUNT_PREFS_NAME = "prefs";
+    final static private String ACCESS_KEY_NAME = "ACCESS_KEY";
+    final static private String ACCESS_SECRET_NAME = "ACCESS_SECRET";
+
 	private static EReaderManager mInstance;
 	
-	private DbxAccountManager mDbxAccountManager;
-	private DbxFileSystem mDbxFileSystem;
+	private DropboxAPI<AndroidAuthSession> mDropboxAPI;
 	
-	
-	public interface OnFilesLoadedCallback<T> {
-		public void onFilesLoaded(List<T> data);
+	public interface OnFilesLoadedCallback {
+		public void onFilesLoaded(List<DbxFileInfo> data);
 	}
 	
-	
-	/**
-	 * No debemos instancia el objeto directamente
-	 */
 	private EReaderManager() {
 		
-		/*
-		 * Obtenemos el Contexto global de la aplicacion, para no depender del contexto de la actividad
-		 * en caso de ser finalizada.
-		 * Esto es necesario por ejemplo a la hora de sincronizar o deslogear.
-		 */
-		Context context = EReaderApplication.getAppContext();
-		
-		mDbxAccountManager = DbxAccountManager.getInstance(context, APP_KEY, APP_SECRET);
+		AndroidAuthSession session = buildSession();
+		mDropboxAPI = new DropboxAPI<AndroidAuthSession>(session);
 	}
 	
-	/**
-	 * Instancia del gestor
-	 * 
-	 * De forma que podamos reutilizarlo, ahorrar memoria, y trabajar con sus miembros.
-	 * 
-	 * @return DropboxManager
-	 */
 	public static EReaderManager getInstance() {
 		if(null == mInstance)
 			mInstance = new EReaderManager();
@@ -72,144 +62,159 @@ public class EReaderManager {
 		return mInstance;
 	}
 	
+    private AndroidAuthSession buildSession() {
+        AppKeyPair appKeyPair = new AppKeyPair(APP_KEY, APP_SECRET);
+        AndroidAuthSession session;
+
+        String[] stored = getKeys();
+        if (stored != null) {
+            AccessTokenPair accessToken = new AccessTokenPair(stored[0], stored[1]);
+            session = new AndroidAuthSession(appKeyPair, ACCESS_TYPE, accessToken);
+        } else {
+            session = new AndroidAuthSession(appKeyPair, ACCESS_TYPE);
+        }
+
+        return session;
+    }
+	
 	/**
 	 * Metodo para conectarse a la cuenta de dropbox
 	 * 
 	 * @param activity		Contexto de la actividad que lanza el metodo
-	 * @param requestCode	Codigo de peticion que diferencia y se procesa en el metodo onActivityResult de la actividad
 	 */
-	public void doLogin(Activity activity, int requestCode)
+	public void doLogin(Activity activity)
 	{
 		if(!isLoggedIn())
-			mDbxAccountManager.startLink(activity, requestCode);
+			mDropboxAPI.getSession().startAuthentication(activity);
 	}
 	
 	
 	public boolean isLoggedIn()
 	{
-		return mDbxAccountManager.hasLinkedAccount();
+		return mDropboxAPI.getSession().isLinked();
 	}
 	
 	
-	public void loadFileSystem() throws Exception
+	public void finishAuthentication() throws IllegalStateException
 	{
-		if(isLoggedIn())
-		{
-			try {
-				mDbxFileSystem = DbxFileSystem.forAccount(mDbxAccountManager.getLinkedAccount());
-			} catch (Unauthorized e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			}
-			return;
-		}
+		AndroidAuthSession session = mDropboxAPI.getSession();
 		
-		throw new Exception("You have not linked to a Dropbox Account");
+        // The next part must be inserted in the onResume() method of the
+        // activity from which session.startAuthentication() was called, so
+        // that Dropbox authentication completes properly.
+        if (session.authenticationSuccessful()) {
+            // Mandatory call to complete the auth
+            session.finishAuthentication();
+
+            // Store it locally in our app for later use
+            TokenPair tokens = session.getAccessTokenPair();
+            storeKeys(tokens.key, tokens.secret);
+        }
 	}
+
+
+    /**
+     * Shows keeping the access keys returned from Trusted Authenticator in a local
+     * store, rather than storing user name & password, and re-authenticating each
+     * time (which is not to be done, ever).
+     *
+     * @return Array of [access_key, access_secret], or null if none stored
+     */
+    private String[] getKeys() {
+        SharedPreferences prefs = EReaderApplication.getAppContext().getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+        String key = prefs.getString(ACCESS_KEY_NAME, null);
+        String secret = prefs.getString(ACCESS_SECRET_NAME, null);
+        if (key != null && secret != null) {
+        	String[] ret = new String[2];
+        	ret[0] = key;
+        	ret[1] = secret;
+        	return ret;
+        } else {
+        	return null;
+        }
+    }
+
+    /**
+     * Shows keeping the access keys returned from Trusted Authenticator in a local
+     * store, rather than storing user name & password, and re-authenticating each
+     * time (which is not to be done, ever).
+     */
+    private void storeKeys(String key, String secret) {
+        // Save the access key for later
+        SharedPreferences prefs = EReaderApplication.getAppContext().getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+        Editor edit = prefs.edit();
+        edit.putString(ACCESS_KEY_NAME, key);
+        edit.putString(ACCESS_SECRET_NAME, secret);
+        edit.commit();
+    }
 	
-	public <T> void getFilesByExtension(List<DbxPath> paths, String fileExtension, 
-			int maxFiles, OnFilesLoadedCallback<T> callback, Class<T> clzz) throws Exception{
+	
+	public void getFilesByExtension(String path, String fileExtension, 
+			int maxFiles, OnFilesLoadedCallback callback) {
 	        
-		loadFileSystem();
-	        
-        DbxFilesTaskLoader<T> task = new DbxFilesTaskLoader<T>(paths, fileExtension, maxFiles, callback, clzz);
+        DbxFilesTaskLoader task = new DbxFilesTaskLoader(path, fileExtension, maxFiles, callback);
         task.execute();
 	}
 	
 	
-	public class DbxFilesTaskLoader< T > extends AsyncTask<Void, Integer, List<T>>
+	public class DbxFilesTaskLoader extends AsyncTask<Void, Integer, List<DbxFileInfo>>
 	{
-		
-		private List<DbxPath> mPaths;
+		private String mPath;
 		private String mFileExtension;
 		private int mMaxFiles;
-		private OnFilesLoadedCallback<T> mCallback;
-		private Class<T> mClzz;
+		private OnFilesLoadedCallback mCallback;
 		
-		public DbxFilesTaskLoader(List<DbxPath> paths, String fileExtension, 
-				int maxFiles, OnFilesLoadedCallback<T> callback, Class<T> clzz) {
+		public DbxFilesTaskLoader(String path, String fileExtension, 
+				int maxFiles, OnFilesLoadedCallback callback) {
 			
-			mPaths = paths;
+			mPath = path;
 			mFileExtension = fileExtension;
 			mMaxFiles = maxFiles;
 			mCallback = callback;
-			mClzz = clzz;
 		}
 
 		@Override
-		protected List<T> doInBackground(Void... params) {
+		protected List<DbxFileInfo> doInBackground(Void... params) {
+				
+			List<Entry> fileList;
 			try {
-				if (!mDbxFileSystem.hasSynced())
-					mDbxFileSystem.awaitFirstSync();
+				fileList = mDropboxAPI.search(mPath, mFileExtension, mMaxFiles, false);
 				
-		        return iterateThroughPaths(mPaths, mFileExtension, mMaxFiles);
-			} catch (DbxException e) {
+				EpubReader reader = new EpubReader();
 				
-				Log.e(TAG, e.getLocalizedMessage());
-
-				return null;
+				ArrayList<DbxFileInfo> booksFound = new ArrayList<DbxFileInfo>();
+				
+	            for( Entry entry : fileList )
+	            {
+	                if (entry.mimeType.compareTo("application/epub+zip") == 0)
+	                {
+	                	InputStream is = mDropboxAPI.getFileStream(entry.path, null);
+	                	
+	                	Book book = reader.readEpub(is);
+	                	
+	                	DbxFileInfo fileInfo = new DbxFileInfo(book, entry);
+	                	
+	                	booksFound.add(fileInfo);
+	                }
+	            }          
+	            
+	            return booksFound;
+	            
+			} catch (DropboxException e) {
+				
+				Log.e(TAG, e.getMessage());
+				
+			} catch (IOException e) {
+				
+				Log.e(TAG, e.getMessage());
 			}
+			
+			return null;
 		}
 		
 		@Override
-		protected void onPostExecute(List<T> result) {
+		protected void onPostExecute(List<DbxFileInfo> result) {
 			mCallback.onFilesLoaded(result);
-		}
-		
-		private List<T> iterateThroughPaths(List<DbxPath> paths, String fileExtension, int maxFiles)
-		{
-			ArrayList<T> filesFound = new ArrayList<T>();
-            int nfiles = 0;
-            
-            try {
-                // iterates over all the directories
-                while (!paths.isEmpty() && (maxFiles < 0 || nfiles < maxFiles)){
-                        DbxPath path = paths.remove(0);
-                        List<DbxFileInfo> files = mDbxFileSystem.listFolder(path);
-                        
-                        // for each file in a directory
-                        for (DbxFileInfo fileInfo : files) {
-                            // if it is a folder then we include it in the set of directories to explore
-                            if (fileInfo.isFolder){
-                                paths.add(fileInfo.path);
-                            }
-                            // if it is the kind of file we are looking for we include it in filesFound
-                            else if (fileExtension == null || fileInfo.path.getName().contains(fileExtension)){
-                                    
-                                Constructor<T> constructor = mClzz.getConstructor(DbxFileInfo.class);
-                                
-                                T newItem = constructor.newInstance(fileInfo);
-                                        
-                                filesFound.add(newItem);
-                                nfiles++;
-                            }
-                        }
-                }
-            } catch (NotFound e){
-                    // when the folder supplied to listFolder doesn't exist
-                    Log.e("DropboxManager.DropboxListingTask", "You must supply an existing folder to listFolder");
-                    throw new IllegalStateException("The folder supplied to listFolder doesn't exist", e);
-                    
-            } catch (InvalidParameter e) {
-                    // when the path supplied to listFolder refers to a file.
-                    Log.e("DropboxManager.DropboxListingTask", "You must supply a folder's path to listFolder");
-                    throw new IllegalStateException("The path supplied to listFolder refers to a file", e);
-                    
-            } catch (DbxException e) {
-                    // when another failure occurs in listFolder
-                    return null;
-            } catch (NoSuchMethodException e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			} catch (InstantiationException e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			} catch (IllegalAccessException e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			} catch (IllegalArgumentException e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			} catch (InvocationTargetException e) {
-				Log.e(TAG, e.getLocalizedMessage());
-			}
-            
-            return filesFound;
 		}
 		
 	}

@@ -9,17 +9,17 @@
         android:targetSdkVersion="19" />
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name="com.saibi.ereader.EReaderApplication"
-        android:allowBackup="true" 
+        android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.saibi.ereader.ui.LoginActivity"
-            android:label="@string/app_name" >
+            android:name="com.saibi.ereader.ui.MainActivity"
+            android:configChanges="orientation|screenSize"
+            android:label="@string/activity_ebook_list" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -27,15 +27,12 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.saibi.ereader.ui.MainActivity"
-            android:configChanges="orientation|screenSize"
-            android:label="@string/activity_ebook_list" />
-        <activity android:name="com.dropbox.sync.android.DbxAuthActivity" />
-        <activity
             android:name="com.dropbox.client2.android.AuthActivity"
-            android:launchMode="singleTask"
-            android:noHistory="true" >
+            android:configChanges="orientation|keyboard"
+            android:launchMode="singleTask" >
             <intent-filter>
+
+                <!-- Change this to be db- followed by your app key -->
                 <data android:scheme="db-INSERT_APP_KEY" />
 
                 <action android:name="android.intent.action.VIEW" />
@@ -44,12 +41,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <service
-            android:name="com.dropbox.sync.android.DbxSyncService"
-            android:enabled="true"
-            android:exported="false"
-            android:label="Dropbox Sync" />
     </application>
 
 </manifest>
