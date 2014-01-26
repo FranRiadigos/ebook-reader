@@ -6,12 +6,12 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ListView;
+import android.widget.GridView;
 
 /**
  * Double Tap List View Support Version Compatible
  */
-public class DoubleTapListViewCompat extends ListView {
+public class DoubleTapGridViewCompat extends GridView {
 
 	private GestureDetector mDetector;
 	private OnItemDoubleClickListener mDoubleClickListener;
@@ -21,20 +21,20 @@ public class DoubleTapListViewCompat extends ListView {
 				int position, long id);
 	}
 
-	public DoubleTapListViewCompat(Context context, AttributeSet attrs,
+	public DoubleTapGridViewCompat(Context context, AttributeSet attrs,
 			int defStyle) {
 		super(context, attrs, defStyle);
 		mDetector = new GestureDetector(context,
 				new DoubleClickGestureListener());
 	}
 
-	public DoubleTapListViewCompat(Context context, AttributeSet attrs) {
+	public DoubleTapGridViewCompat(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		mDetector = new GestureDetector(context,
 				new DoubleClickGestureListener());
 	}
 
-	public DoubleTapListViewCompat(Context context) {
+	public DoubleTapGridViewCompat(Context context) {
 		super(context);
 		mDetector = new GestureDetector(context,
 				new DoubleClickGestureListener());
@@ -67,14 +67,14 @@ public class DoubleTapListViewCompat extends ListView {
 		public boolean onDoubleTap(MotionEvent e) {
 			if (mDoubleClickListener != null) {
 
-				int position = DoubleTapListViewCompat.this.pointToPosition(
+				int position = DoubleTapGridViewCompat.this.pointToPosition(
 						(int) e.getX(), (int) e.getY());
 
 				if (position != INVALID_POSITION) {
 					mDoubleClickListener.OnItemDoubleClick(
-							DoubleTapListViewCompat.this,
-							DoubleTapListViewCompat.this.getChildAt(position),
-							position, DoubleTapListViewCompat.this.getAdapter()
+							DoubleTapGridViewCompat.this,
+							DoubleTapGridViewCompat.this.getChildAt(position),
+							position, DoubleTapGridViewCompat.this.getAdapter()
 									.getItemId(position));
 					return true;
 				}

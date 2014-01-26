@@ -33,10 +33,10 @@ import com.saibi.ereader.adapters.SortedListAdapter.OnSortedListFinished;
 import com.saibi.ereader.domain.DbxFileInfo;
 import com.saibi.ereader.utils.ImageLazyLoader;
 import com.saibi.ereader.utils.ImageLazyLoader.OnImageLoaded;
-import com.saibi.ereader.widgets.DoubleTapListViewCompat;
-import com.saibi.ereader.widgets.DoubleTapListViewCompat.OnItemDoubleClickListener;
+import com.saibi.ereader.widgets.DoubleTapGridViewCompat;
+import com.saibi.ereader.widgets.DoubleTapGridViewCompat.OnItemDoubleClickListener;
 
-public class EbookListFragment extends CustomListFragment implements
+public class EbookListFragment extends CustomGridFragment implements
 		OnFilesLoadedCallback, ActionBar.OnNavigationListener,
 		OnSortedListFinished, OnImageLoaded {
 	public static final String TAG = "MainActivity$EbookListFragment";
@@ -113,13 +113,15 @@ public class EbookListFragment extends CustomListFragment implements
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
 
+		setCustomGridView(R.layout.fragment_custom_grid);
+
 		// Double Tap
 		View view = super.onCreateView(inflater, container, savedInstanceState);
 
-		DoubleTapListViewCompat listView = (DoubleTapListViewCompat) view
+		DoubleTapGridViewCompat gridView = (DoubleTapGridViewCompat) view
 				.findViewById(android.R.id.list);
 
-		listView.setOnItemDoubleClickListener(new OnItemDoubleClickListener() {
+		gridView.setOnItemDoubleClickListener(new OnItemDoubleClickListener() {
 
 			@Override
 			public void OnItemDoubleClick(AdapterView<?> parent, View view,
@@ -165,11 +167,11 @@ public class EbookListFragment extends CustomListFragment implements
 
 		mAdapter = new EbookSortedListAdapter(getActivity());
 
-		setListAdapter(mAdapter);
+		setGridAdapter(mAdapter);
 
 		loadFilesList();
 
-		setListShown(false);
+		setGridShown(false);
 	}
 
 	/**
@@ -180,7 +182,7 @@ public class EbookListFragment extends CustomListFragment implements
 
 		// Comprueba que se han cargado los datos
 		if (mFilesLoaded) {
-			setListShown(false);
+			setGridShown(false);
 			mAdapter.clear();
 			mComparator.setType(position);
 			mAdapter.sortBy(mComparator, this);
@@ -213,7 +215,7 @@ public class EbookListFragment extends CustomListFragment implements
 
 	@Override
 	public void onSortedListFinished() {
-		setListShown(true);
+		setGridShown(true);
 	}
 
 	/**
@@ -294,19 +296,22 @@ public class EbookListFragment extends CustomListFragment implements
 
 				if (null == convertView) {
 					convertView = mInflater.inflate(
-							R.layout.fragment_ebook_list, parent, false);
+							R.layout.fragment_ebook_item, parent, false);
 
 					holder = new ViewHolder();
 
-					holder.title = (TextView) convertView
-							.findViewById(R.id.title);
+					holder.cover = (ImageView) convertView
+							.findViewById(R.id.cover);
 
 					convertView.setTag(holder);
 				} else {
 					holder = (ViewHolder) convertView.getTag();
 				}
 
-				holder.title.setText(fileInfo.getBook().getTitle());
+				holder.cover.setImageResource(0);
+
+				ImageLazyLoader.loadFromInputStream(holder.cover, fileInfo
+						.getBook().getCoverImage().getInputStream(), true);
 
 			} catch (Exception e) {
 				Log.w(TAG, e.getMessage());
@@ -316,7 +321,7 @@ public class EbookListFragment extends CustomListFragment implements
 		}
 
 		private class ViewHolder {
-			TextView title;
+			ImageView cover;
 		}
 	}
 
